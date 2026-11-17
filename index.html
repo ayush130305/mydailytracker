@@ -107,7 +107,7 @@ footer{margin-top:20px;font:400 12px var(--mono);color:var(--mute);display:flex;
   </header>
 
   <section class="cds" id="cds" aria-label="Countdowns"></section>
-  <div class="row" style="margin-bottom:12px"><button class="btn tiny" data-act="edit-cd" id="cdEditBtn">Edit dates</button></div>
+  <div class="row" id="cdRow" style="margin-bottom:12px"><button class="btn tiny" data-act="edit-cd" id="cdEditBtn">Edit dates</button><button class="btn tiny hide" data-act="add-cd" id="cdAddBtn">Add date</button></div>
 
   <main class="grid">
     <section class="card" id="cFocus"></section>
@@ -288,9 +288,10 @@ function renderHeader() {
 }
 function renderCD() {
   const t0 = new Date(todayISO() + 'T00:00:00');
-  $('#cdEditBtn').textContent = editCD ? 'Done' : 'Edit dates';
+  $('#cdEditBtn').textContent = editCD ? 'Done' : (S.settings.dates.length ? 'Edit dates' : 'Add a date');
+  $('#cdAddBtn').classList.toggle('hide', !editCD);
   $('#cds').innerHTML = S.settings.dates.map((c, i) => {
-    if (editCD) return `<div class="cd"><input data-cd="${i}" data-f="label" value="${esc(c.label)}" aria-label="Label"><input type="date" data-cd="${i}" data-f="date" value="${esc(c.date)}" aria-label="Date"></div>`;
+    if (editCD) return `<div class="cd"><input data-cd="${i}" data-f="label" value="${esc(c.label)}" aria-label="Label"><input type="date" data-cd="${i}" data-f="date" value="${esc(c.date)}" aria-label="Date"><button class="btn tiny" data-act="del-cd" data-i="${i}">Remove</button></div>`;
     const days = Math.round((new Date(c.date + 'T00:00:00') - t0) / 864e5);
     const big = isNaN(days) ? '—' : days < 0 ? 'Done' : days;
     const unit = isNaN(days) || days < 0 ? '' : days === 1 ? 'day left' : 'days left';
@@ -502,7 +503,9 @@ document.addEventListener('click', e => {
     case 'export': exportData(); break;
     case 'import': importData(); break;
     case 'del-h': S.settings.habits.splice(i, 1); save(); renderHabits(); renderHeader(); break;
-    case 'edit-cd': editCD = !editCD; renderCD(); break;
+    case 'edit-cd': editCD = !editCD; if (editCD && !S.settings.dates.length) S.settings.dates.push({ id: uid(), label: 'New date', date: todayISO() }), save(); renderCD(); break;
+    case 'add-cd': S.settings.dates.push({ id: uid(), label: 'New date', date: todayISO() }); save(); renderCD(); break;
+    case 'del-cd': S.settings.dates.splice(i, 1); save(); if (!S.settings.dates.length) editCD = false; renderCD(); break;
     case 'del-exp': S.expenses = S.expenses.filter(x => x.id !== el.dataset.id); save(); renderMoney(); break;
     case 'copy-exp': copyExpenses(); break;
     case 'reveal': {
