@@ -250,7 +250,8 @@ function renderSync() {
   const on = !!getTok(), s = S.settings.sync;
   $('#cSync').innerHTML = `
     <h2><span>Sync and backup</span><span>${on ? 'GitHub on' : 'This device only'}</span></h2>
-    <div class="muted" style="font-size:13px">Paste a GitHub token with Contents read/write on ${esc(s.repo)} on each device. It stays in this browser and is never saved into your data.</div>
+    <div class="muted" style="font-size:13px">Data repo below should be private, because this repo is public. Paste a GitHub token with Contents read/write on it on each device. It stays in this browser and is never saved into your data.</div>
+    <div class="row"><input class="grow" data-repo="1" value="${esc(s.repo)}" aria-label="Data repository (owner/name)" placeholder="owner/private-data-repo"></div>
     <div class="row"><input class="grow" id="ghTok" type="password" placeholder="${on ? 'Token saved' : 'github_pat_…'}" aria-label="GitHub token" autocomplete="off"><button class="btn pri" data-act="sync-token">Save</button>${on ? '<button class="btn" data-act="sync-now">Sync now</button><button class="btn tiny" data-act="sync-clear">Remove</button>' : ''}</div>
     <div class="row"><button class="btn" data-act="export">Export backup</button><button class="btn" data-act="import">Import backup</button></div>
     <textarea id="dataBox" placeholder="Backup text appears here. Paste a backup and press Import to restore." aria-label="Backup text"></textarea>`;
@@ -539,6 +540,7 @@ document.addEventListener('submit', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.cd !== undefined) { S.settings.dates[+t.dataset.cd][t.dataset.f] = t.value; save(); if (t.dataset.f === 'date') renderCD(); }
+  if (t.dataset.repo !== undefined) { S.settings.sync.repo = t.value.trim() || DEFAULT.settings.sync.repo; ghSha = null; save(); }
   if (t.dataset.tn !== undefined) {
     const old = S.settings.tags[+t.dataset.tn], nv = t.value.trim();
     if (nv && !S.settings.tags.includes(nv)) {
