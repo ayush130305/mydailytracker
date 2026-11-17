@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Console</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#2540ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one calm grid of single-purpose cards under a countdown strip; mono for numbers, sans for text */
+:root{
+  --bg:#f4f5f7; --card:#ffffff; --ink:#111318; --mute:#667085; --line:#e2e5ea;
+  --acc:#2540ff; --acc-soft:#e8ecff; --ok:#13795b;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace; --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1013; --card:#16191e; --ink:#eceef2; --mute:#8b93a1; --line:#262b33;
+    --acc:#7d90ff; --acc-soft:#1d2340; --ok:#4cc9a0; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1013; --card:#16191e; --ink:#eceef2; --mute:#8b93a1; --line:#262b33;
+  --acc:#7d90ff; --acc-soft:#1d2340; --ok:#4cc9a0; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1120px;margin:0 auto;padding:28px 16px 56px}
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+h1{margin:0;font:600 28px/1.15 var(--sans);text-wrap:balance}
+.sub{font:400 13px var(--mono);color:var(--mute);margin-top:6px}
+.sum{font:500 13px var(--mono);color:var(--mute)}
+.cds{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:22px 0 12px}
+.cd{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;display:flex;flex-direction:column;gap:2px}
+.cd .n{font:600 34px/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.cd .l{font-weight:500}
+.cd .d{font:400 12px var(--mono);color:var(--mute)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.card h2{margin:0;font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mute);display:flex;justify-content:space-between;align-items:center;gap:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{font:500 13px var(--sans);border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--mute)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.tiny{padding:3px 8px;font-size:12px;color:var(--mute)}
+.chip{font:500 12px var(--mono);border:1px solid var(--line);background:transparent;color:var(--mute);border-radius:999px;padding:4px 10px;cursor:pointer}
+.chip.on{background:var(--acc-soft);color:var(--acc);border-color:var(--acc)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+input,select,textarea{font:400 14px var(--sans);color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:8px;padding:7px 10px;min-width:0}
+textarea{width:100%;resize:vertical;min-height:64px}
+.grow{flex:1 1 120px}
+.timer{font:500 56px/1 var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--acc);transition:width .4s linear}
+.muted{color:var(--mute)}
+.mono{font-family:var(--mono)}
+.list{display:flex;flex-direction:column;gap:2px}
+.item{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border-bottom:0}
+.item .t{flex:1;min-width:0;overflow-wrap:anywhere}
+.item.done .t{color:var(--mute);text-decoration:line-through}
+.box{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--mute);background:transparent;cursor:pointer;flex:none;padding:0;color:#fff;font:600 12px var(--mono);line-height:1}
+.box.on{background:var(--acc);border-color:var(--acc)}
+.x{border:0;background:transparent;color:var(--mute);cursor:pointer;font-size:16px;padding:0 4px}
+.dots{display:flex;gap:3px}
+.dots i{width:7px;height:7px;border-radius:2px;background:var(--line)}
+.dots i.on{background:var(--acc)}
+.streak{font:500 12px var(--mono);color:var(--mute);min-width:34px;text-align:right}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+.col{display:flex;flex-direction:column;align-items:center;gap:4px}
+.track{height:96px;width:100%;display:flex;align-items:flex-end}
+.track i{display:block;width:100%;background:var(--line);border-radius:4px 4px 0 0;min-height:2px}
+.col.today .track i{background:var(--acc)}
+.col .bv{font:400 11px var(--mono);color:var(--mute);height:14px}
+.col .bl{font:500 11px var(--mono);color:var(--mute)}
+.stats{display:flex;flex-wrap:wrap;gap:6px 14px;font:400 12px var(--mono);color:var(--mute)}
+.stats b{color:var(--ink);font-weight:500}
+.q{font-weight:500}
+.ans{border-left:2px solid var(--acc);padding-left:10px;color:var(--ink)}
+.cat{display:flex;align-items:center;gap:8px;font:400 12px var(--mono);color:var(--mute)}
+.cat .nm{width:78px}
+.cat .bb{flex:1;height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.cat .bb i{display:block;height:100%;background:var(--acc)}
+.cat .am{width:70px;text-align:right;color:var(--ink)}
+.big{font:600 26px var(--mono);font-variant-numeric:tabular-nums}
+footer{margin-top:20px;font:400 12px var(--mono);color:var(--mute);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.hide{display:none}
+@media (prefers-reduced-motion: reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="greet"></h1>
+      <div class="sub" id="dateLine"></div>
+    </div>
+    <div class="sum" id="summary"></div>
+  </header>
+
+  <section class="cds" id="cds" aria-label="Countdowns"></section>
+  <div class="row" style="margin-bottom:12px"><button class="btn tiny" data-act="edit-cd" id="cdEditBtn">Edit dates</button></div>
+
+  <main class="grid">
+    <section class="card" id="cFocus"></section>
+    <section class="card" id="cTasks"></section>
+    <section class="card" id="cHabits"></section>
+    <section class="card" id="cWeek"></section>
+    <section class="card" id="cMoney"></section>
+    <section class="card" id="cDrill"></section>
+    <section class="card" id="cLog"></section>
+    <section class="card" id="cSync"></section>
+  </main>
+
+  <footer>
+    <span id="status">Loading</span>
+    <span>Everything is saved as you go.</span>
+  </footer>
+</div>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const pad = n => String(n).padStart(2, '0');
+const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const todayISO = () => iso(new Date());
+const addDays = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtMin = m => m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + pad(m % 60) + 'm';
+const fmtMoney = n => '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+const CATS = ['Food', 'Travel', 'Components', 'Running', 'Study', 'Other'];
+
+/* ---------- state ---------- */
+const DEFAULT = {
+  settings: {
+    focus: 50, brk: 10, lastSubject: 'RTL', lastCat: 'Food',
+    tags: ['RTL', 'Intern', 'Reading', 'Other'],
+    habits: [
+      { id: 'h1', name: 'Run or move' },
+      { id: 'h4', name: 'RTL / Verilog' },
+      { id: 'h5', name: 'Read 20 min' },
+      { id: 'h6', name: 'Sleep by midnight' }
+    ],
+    dates: [
+      { id: 'd2', label: 'New Year trip', date: '2026-12-29' },
+      { id: 'd3', label: 'Graduation', date: '2027-05-31' }
+    ],
+    sync: { repo: 'ayush130305/mydailytracker', path: 'data/state.json', branch: 'main' }
+  },
+  days: {}, expenses: [], drill: { date: '', i: 0 }, savedAt: 0
+};
+let S = structuredClone(DEFAULT);
+let editCD = false, editH = false, editT = false, showAns = false;
+
+function merge(r) {
+  const base = structuredClone(DEFAULT);
+  if (!r || typeof r !== 'object') return base;
+  const out = Object.assign(base, r);
+  out.settings = Object.assign(structuredClone(DEFAULT.settings), r.settings || {});
+  if (!Array.isArray(out.settings.habits)) out.settings.habits = structuredClone(DEFAULT.settings.habits);
+  if (!Array.isArray(out.settings.dates)) out.settings.dates = structuredClone(DEFAULT.settings.dates);
+  if (!Array.isArray(out.settings.tags) || !out.settings.tags.length) out.settings.tags = structuredClone(DEFAULT.settings.tags);
+  out.settings.sync = Object.assign({}, DEFAULT.settings.sync, r.settings && r.settings.sync);
+  if (!out.days || typeof out.days !== 'object') out.days = {};
+  if (!Array.isArray(out.expenses)) out.expenses = [];
+  if (!out.drill) out.drill = { date: '', i: 0 };
+  return out;
+}
+
+const getDay = d => S.days[d] || { tasks: [], habits: {}, focus: {}, log: '', drills: 0 };
+const dayW = (d = todayISO()) => {
+  if (!S.days[d]) S.days[d] = { tasks: [], habits: {}, focus: {}, log: '', drills: 0 };
+  const x = S.days[d];
+  x.tasks = x.tasks || []; x.habits = x.habits || {}; x.focus = x.focus || {};
+  return x;
+};
+const focusSum = d => Object.values(d.focus || {}).reduce((a, b) => a + b, 0);
+
+/* ---------- persistence: account database when available, this device otherwise ---------- */
+const LS = 'daily-console-v1';
+let dbRef = null, saveT = null;
+const loadLocal = () => { try { const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; } catch (e) { return null; } };
+const saveLocal = () => { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) {} };
+function setStatus(t) { $('#status').textContent = t; }
+function save() {
+  S.savedAt = Date.now();
+  saveLocal();
+  setStatus('Saving');
+  clearTimeout(saveT);
+  saveT = setTimeout(flush, 800);
+}
+async function flush() {
+  if (getTok()) { clearTimeout(ghT); ghT = setTimeout(ghPush, 3000); }
+  if (!dbRef) { if (!getTok()) setStatus('Saved on this device'); return; }
+  try { await dbRef.set({ json: JSON.stringify(S), updated: Date.now() }); setStatus('Saved to your account'); }
+  catch (e) { setStatus('Saved on this device'); }
+}
+
+/* ---------- GitHub sync: keeps one JSON file in your repo so phone and laptop share data ---------- */
+const TK = 'dc-gh-token';
+const getTok = () => { try { return localStorage.getItem(TK) || ''; } catch (e) { return ''; } };
+let ghSha = null, ghT = null;
+const ghUrl = () => 'https://api.github.com/repos/' + S.settings.sync.repo + '/contents/' + S.settings.sync.path;
+const ghHead = () => ({ Authorization: 'Bearer ' + getTok(), Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' });
+const b64enc = s => btoa(unescape(encodeURIComponent(s)));
+const b64dec = b => decodeURIComponent(escape(atob(b.replace(/\n/g, ''))));
+async function ghPull() {
+  const r = await fetch(ghUrl() + '?ref=' + S.settings.sync.branch + '&t=' + Date.now(), { headers: ghHead(), cache: 'no-store' });
+  if (r.status === 404) { ghSha = null; return null; }
+  if (!r.ok) throw new Error('GitHub ' + r.status);
+  const j = await r.json(); ghSha = j.sha;
+  return JSON.parse(b64dec(j.content));
+}
+async function ghPush(retry = true) {
+  if (!getTok()) return;
+  try {
+    const body = { message: 'Update tracker data', content: b64enc(JSON.stringify(S, null, 1)), branch: S.settings.sync.branch };
+    if (ghSha) body.sha = ghSha;
+    const r = await fetch(ghUrl(), { method: 'PUT', headers: ghHead(), body: JSON.stringify(body) });
+    if (r.ok) { ghSha = (await r.json()).content.sha; setStatus('Synced to GitHub'); }
+    else if ((r.status === 409 || r.status === 422) && retry) { await ghPull(); await ghPush(false); }
+    else setStatus('GitHub sync failed (' + r.status + '). Saved on this device.');
+  } catch (e) { setStatus('Offline. Saved on this device.'); }
+}
+async function syncNow() {
+  if (!getTok()) return;
+  setStatus('Syncing');
+  try {
+    const remote = await ghPull();
+    if (remote && (remote.savedAt || 0) > (S.savedAt || 0)) { S = merge(remote); saveLocal(); renderAll(); setStatus('Synced from GitHub'); }
+    else await ghPush();
+  } catch (e) { setStatus('GitHub sync failed. Check the token.'); }
+}
+function exportData() { const b = $('#dataBox'); b.value = JSON.stringify(S); b.select(); try { navigator.clipboard.writeText(b.value); } catch (e) {} setStatus('Backup text ready to copy'); }
+function importData() {
+  try { const r = JSON.parse($('#dataBox').value); S = merge(r); S.savedAt = Date.now(); save(); renderAll(); setStatus('Backup loaded'); }
+  catch (e) { setStatus('That text is not a valid backup'); }
+}
+function renderSync() {
+  const on = !!getTok(), s = S.settings.sync;
+  $('#cSync').innerHTML = `
+    <h2><span>Sync and backup</span><span>${on ? 'GitHub on' : 'This device only'}</span></h2>
+    <div class="muted" style="font-size:13px">Paste a GitHub token with Contents read/write on ${esc(s.repo)} on each device. It stays in this browser and is never saved into your data.</div>
+    <div class="row"><input class="grow" id="ghTok" type="password" placeholder="${on ? 'Token saved' : 'github_pat_…'}" aria-label="GitHub token" autocomplete="off"><button class="btn pri" data-act="sync-token">Save</button>${on ? '<button class="btn" data-act="sync-now">Sync now</button><button class="btn tiny" data-act="sync-clear">Remove</button>' : ''}</div>
+    <div class="row"><button class="btn" data-act="export">Export backup</button><button class="btn" data-act="import">Import backup</button></div>
+    <textarea id="dataBox" placeholder="Backup text appears here. Paste a backup and press Import to restore." aria-label="Backup text"></textarea>`;
+}
+async function initDb() {
+  try {
+    if (!window.claude || !claude.use) { setStatus('Saved on this device'); return; }
+    const db = await claude.use('db');
+    const user = await claude.use('user');
+    if (!db || !user) { setStatus('Saved on this device'); return; }
+    const id = await user.id();
+    const ref = db.collection('data/users/' + id).doc('state');
+    const snap = await ref.get();
+    let d = snap && (typeof snap.data === 'function' ? snap.data() : snap.data);
+    dbRef = ref;
+    if (d && d.json) {
+      const remote = merge(JSON.parse(d.json));
+      if ((remote.savedAt || 0) >= (S.savedAt || 0)) { S = remote; saveLocal(); renderAll(); setStatus('Saved to your account'); }
+      else { flush(); }
+    } else { flush(); }
+  } catch (e) { setStatus('Saved on this device'); }
+}
+
+/* ---------- header and countdowns ---------- */
+function renderHeader() {
+  const n = new Date(), h = n.getHours();
+  const g = h < 5 ? 'Still up, Ayush' : h < 12 ? 'Good morning, Ayush' : h < 17 ? 'Good afternoon, Ayush' : 'Good evening, Ayush';
+  $('#greet').textContent = g;
+  $('#dateLine').textContent = n.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const d = getDay(todayISO());
+  const hd = S.settings.habits.filter(x => d.habits[x.id]).length;
+  const td = d.tasks.filter(t => t.done).length;
+  $('#summary').textContent = hd + '/' + S.settings.habits.length + ' habits · ' + td + '/' + d.tasks.length + ' tasks · ' + fmtMin(focusSum(d)) + ' focused';
+}
+function renderCD() {
+  const t0 = new Date(todayISO() + 'T00:00:00');
+  $('#cdEditBtn').textContent = editCD ? 'Done' : 'Edit dates';
+  $('#cds').innerHTML = S.settings.dates.map((c, i) => {
+    if (editCD) return `<div class="cd"><input data-cd="${i}" data-f="label" value="${esc(c.label)}" aria-label="Label"><input type="date" data-cd="${i}" data-f="date" value="${esc(c.date)}" aria-label="Date"></div>`;
+    const days = Math.round((new Date(c.date + 'T00:00:00') - t0) / 864e5);
+    const big = isNaN(days) ? '—' : days < 0 ? 'Done' : days;
+    const unit = isNaN(days) || days < 0 ? '' : days === 1 ? 'day left' : 'days left';
+    return `<div class="cd"><span class="n">${big}</span><span class="l">${esc(c.label)}</span><span class="d">${unit ? unit + ' · ' : ''}${esc(c.date)}</span></div>`;
+  }).join('');
+}
+
+/* ---------- focus timer ---------- */
+let T = { mode: 'focus', end: null, start: null, mins: 0, subject: 'RTL' };
+try { const r = JSON.parse(localStorage.getItem('dc-timer') || 'null'); if (r) T = Object.assign(T, r); } catch (e) {}
+const saveT_ = () => { try { localStorage.setItem('dc-timer', JSON.stringify(T)); } catch (e) {} };
+let actx = null;
+function beep() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.25, 0.5].forEach(o => {
+      const os = actx.createOscillator(), g = actx.createGain();
+      os.frequency.value = 880; os.connect(g); g.connect(actx.destination);
+      const t = actx.currentTime + o; g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      os.start(t); os.stop(t + 0.22);
+    });
+  } catch (e) {}
+}
+function addFocus(subj, m) {
+  if (m < 1) return;
+  const d = dayW(); d.focus[subj] = (d.focus[subj] || 0) + m; save();
+}
+function startTimer(mode) {
+  const mins = mode === 'focus' ? S.settings.focus : S.settings.brk;
+  T = { mode, mins, subject: S.settings.lastSubject, start: Date.now(), end: Date.now() + mins * 60000 };
+  saveT_();
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); } catch (e) {}
+  renderFocus(); tick();
+}
+function stopTimer() {
+  if (T.end && T.mode === 'focus') addFocus(T.subject, Math.floor((Date.now() - T.start) / 60000));
+  T.end = null; saveT_(); document.title = 'Daily Console'; renderAll();
+}
+function finishTimer() {
+  if (T.mode === 'focus') addFocus(T.subject, T.mins);
+  T.end = null; saveT_(); beep(); document.title = 'Daily Console'; renderAll();
+}
+function tick() {
+  if (!T.end) return;
+  const left = T.end - Date.now();
+  if (left <= 0) { finishTimer(); return; }
+  const s = Math.ceil(left / 1000), txt = pad(Math.floor(s / 60)) + ':' + pad(s % 60);
+  const el = $('#tmr'), pr = $('#tpr');
+  if (el) el.textContent = txt;
+  if (pr) pr.style.width = (100 - left / (T.mins * 60000) * 100) + '%';
+  document.title = txt + ' · ' + (T.mode === 'focus' ? T.subject : 'Break');
+}
+function renderFocus() {
+  const running = !!T.end, s = S.settings;
+  const shown = running ? '' : pad(s.focus) + ':00';
+  $('#cFocus').innerHTML = `
+    <h2><span>Focus</span><span>${running ? (T.mode === 'focus' ? T.subject : 'Break') : 'Ready'}</span></h2>
+    <div class="timer" id="tmr">${shown}</div>
+    <div class="bar"><i id="tpr"></i></div>
+    ${running ? `<div class="row"><button class="btn pri" data-act="stop">${T.mode === 'focus' ? 'Stop and log' : 'Skip break'}</button></div>` : `
+    ${editT ? `<div class="list">${s.tags.map((x, i) => `<div class="item"><input class="grow" data-tn="${i}" value="${esc(x)}" aria-label="Tag name"><button class="x" data-act="del-tag" data-i="${i}" aria-label="Remove tag">×</button></div>`).join('')}</div>
+    <form class="row" id="tagForm"><input class="grow" id="tagIn" placeholder="New tag" aria-label="New tag"><button class="btn" type="submit">Add tag</button><button class="btn tiny" type="button" data-act="edit-t">Done</button></form>` : `
+    <div class="row">${s.tags.map(x => `<button class="chip ${x === s.lastSubject ? 'on' : ''}" data-act="subj" data-v="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip" data-act="edit-t">Edit tags</button></div>`}
+    <div class="row">${[25, 50, 90].map(x => `<button class="chip ${x === s.focus ? 'on' : ''}" data-act="dur" data-v="${x}">${x} min</button>`).join('')}</div>
+    <div class="row"><button class="btn pri" data-act="start">Start focus</button><button class="btn" data-act="brk">${s.brk} min break</button></div>`}
+    <form class="row" id="manual"><input class="grow" type="number" min="1" max="600" id="manMin" placeholder="Log minutes done offline" aria-label="Minutes"><button class="btn" type="submit">Add to ${esc(s.lastSubject)}</button></form>`;
+  if (running) tick();
+}
+
+/* ---------- today's list ---------- */
+function renderTasks() {
+  const d = getDay(todayISO()), y = getDay(addDays(todayISO(), -1));
+  const carry = y.tasks.filter(t => !t.done && !d.tasks.some(x => x.t === t.t));
+  $('#cTasks').innerHTML = `
+    <h2><span>Today's list</span><span>${d.tasks.filter(t => t.done).length}/${d.tasks.length}</span></h2>
+    <form class="row" id="taskForm"><input class="grow" id="taskIn" placeholder="What has to happen today" aria-label="New task"><button class="btn pri" type="submit">Add</button></form>
+    <div class="list">${d.tasks.map((t, i) => `<div class="item ${t.done ? 'done' : ''}"><button class="box ${t.done ? 'on' : ''}" data-act="tog-task" data-i="${i}" aria-label="Toggle">${t.done ? '✓' : ''}</button><span class="t">${esc(t.t)}</span><button class="x" data-act="del-task" data-i="${i}" aria-label="Delete">×</button></div>`).join('') || '<span class="muted">Nothing yet. Add the three things that matter.</span>'}</div>
+    ${carry.length ? `<div class="row"><button class="btn tiny" data-act="carry">Carry over ${carry.length} from yesterday</button></div>` : ''}`;
+}
+
+/* ---------- habits ---------- */
+const streak = test => { let d = todayISO(), n = 0; if (!test(d)) d = addDays(d, -1); while (test(d) && n < 3650) { n++; d = addDays(d, -1); } return n; };
+function renderHabits() {
+  const today = todayISO(), d = getDay(today);
+  const last14 = [...Array(14)].map((_, i) => addDays(today, i - 13));
+  $('#cHabits').innerHTML = `
+    <h2><span>Habits</span><button class="btn tiny" data-act="edit-h">${editH ? 'Done' : 'Edit'}</button></h2>
+    <div class="list">${S.settings.habits.map((h, i) => {
+      const on = !!d.habits[h.id], st = streak(x => getDay(x).habits[h.id]);
+      if (editH) return `<div class="item"><input class="grow" data-hn="${i}" value="${esc(h.name)}" aria-label="Habit name"><button class="x" data-act="del-h" data-i="${i}" aria-label="Remove">×</button></div>`;
+      return `<div class="item"><button class="box ${on ? 'on' : ''}" data-act="tog-h" data-id="${h.id}" aria-label="Toggle ${esc(h.name)}">${on ? '✓' : ''}</button><span class="t">${esc(h.name)}</span><span class="dots" aria-hidden="true">${last14.map(x => `<i class="${getDay(x).habits[h.id] ? 'on' : ''}"></i>`).join('')}</span><span class="streak">${st}d</span></div>`;
+    }).join('')}</div>
+    ${editH ? `<form class="row" id="habitForm"><input class="grow" id="habitIn" placeholder="New habit" aria-label="New habit"><button class="btn" type="submit">Add</button></form>` : ''}`;
+}
+
+/* ---------- week of focus ---------- */
+function renderWeek() {
+  const today = todayISO();
+  const days = [...Array(7)].map((_, i) => addDays(today, i - 6));
+  const mins = days.map(d => focusSum(getDay(d)));
+  const max = Math.max(120, ...mins);
+  const bySubj = {}; days.forEach(d => Object.entries(getDay(d).focus || {}).forEach(([k, v]) => bySubj[k] = (bySubj[k] || 0) + v));
+  const total = mins.reduce((a, b) => a + b, 0);
+  const st = streak(x => focusSum(getDay(x)) >= 25);
+  $('#cWeek').innerHTML = `
+    <h2><span>Last 7 days</span><span>${fmtMin(total)}</span></h2>
+    <div class="week">${days.map((d, i) => `<div class="col ${i === 6 ? 'today' : ''}"><span class="bv">${mins[i] ? (mins[i] >= 60 ? (mins[i] / 60).toFixed(1) + 'h' : mins[i] + 'm') : ''}</span><div class="track"><i style="height:${mins[i] / max * 100}%"></i></div><span class="bl">${new Date(d + 'T12:00:00').toLocaleDateString('en-IN', { weekday: 'narrow' })}</span></div>`).join('')}</div>
+    <div class="stats"><span>Study streak <b>${st}d</b></span>${Object.keys(bySubj).map(k => `<span>${esc(k)} <b>${fmtMin(bySubj[k])}</b></span>`).join('')}</div>
+    <div class="muted" style="font-size:12px">A study day counts at 25 focused minutes.</div>`;
+}
+
+/* ---------- money ---------- */
+function monthRows() { const p = todayISO().slice(0, 7); return S.expenses.filter(e => e.date.startsWith(p)).sort((a, b) => b.ts - a.ts); }
+function renderMoney() {
+  const rows = monthRows(), today = todayISO();
+  const mTot = rows.reduce((a, e) => a + e.amt, 0), tTot = rows.filter(e => e.date === today).reduce((a, e) => a + e.amt, 0);
+  const byC = {}; rows.forEach(e => byC[e.cat] = (byC[e.cat] || 0) + e.amt);
+  const maxC = Math.max(1, ...Object.values(byC));
+  $('#cMoney').innerHTML = `
+    <h2><span>Spending</span><button class="btn tiny" data-act="copy-exp">Copy month as TSV</button></h2>
+    <div class="row" style="gap:24px"><div><div class="big">${fmtMoney(tTot)}</div><div class="muted mono" style="font-size:12px">today</div></div><div><div class="big">${fmtMoney(mTot)}</div><div class="muted mono" style="font-size:12px">${new Date().toLocaleDateString('en-IN', { month: 'long' })}</div></div></div>
+    <form class="row" id="expForm"><input id="expAmt" type="number" inputmode="decimal" min="0" step="any" placeholder="₹" style="width:90px" aria-label="Amount" required><select id="expCat" aria-label="Category">${CATS.map(c => `<option ${c === S.settings.lastCat ? 'selected' : ''}>${c}</option>`).join('')}</select><input class="grow" id="expNote" placeholder="Note" aria-label="Note"><button class="btn pri" type="submit">Add</button></form>
+    <div>${CATS.filter(c => byC[c]).map(c => `<div class="cat"><span class="nm">${c}</span><span class="bb"><i style="width:${byC[c] / maxC * 100}%"></i></span><span class="am">${fmtMoney(byC[c])}</span></div>`).join('')}</div>
+    <div class="list">${rows.slice(0, 6).map(e => `<div class="item"><span class="mono muted" style="font-size:12px;width:44px">${e.date.slice(8)}/${e.date.slice(5, 7)}</span><span class="t">${esc(e.cat)}${e.note ? ' · ' + esc(e.note) : ''}</span><span class="mono">${fmtMoney(e.amt)}</span><button class="x" data-act="del-exp" data-id="${e.id}" aria-label="Delete">×</button></div>`).join('')}</div>
+    <textarea id="tsvBox" class="hide" readonly aria-label="Copy this text"></textarea>`;
+}
+
+/* ---------- daily drill ---------- */
+const DRILLS = [
+  ['Minimum number of 2-input NAND gates for an XOR?', '4. With N = NAND(A,B): out = NAND(NAND(A,N), NAND(B,N)).'],
+  ['A setup violation shows up. Can a slower clock fix it? What about a hold violation?', 'Slower clock fixes setup, since the period grows. Hold does not depend on the period, so it needs delay added to the data path.'],
+  ['Flip-flops needed for a mod-12 counter?', '4, because 2^3 = 8 is too few and 2^4 = 16 covers 12 states.'],
+  ['Gray code for binary 1011?', '1110. Keep the MSB, then XOR each bit with the bit above it.'],
+  ['Blocking vs non-blocking assignment in a clocked always block?', 'Non-blocking (<=) samples every right side first and updates at the end of the time step, so registers behave like real flip-flops. Use it for sequential logic.'],
+  ['How do you lower the failure rate when sampling an asynchronous input?', 'Pass it through a two-flop synchronizer. Each extra stage gives metastability more time to resolve and raises MTBF exponentially.'],
+  ['Range of an 8-bit two\'s complement number?', '-128 to +127.'],
+  ['Minimum alias-free sampling rate for a signal band-limited to 3 kHz?', 'Above 6 kHz, which is twice the highest frequency (Nyquist).'],
+  ['Why is the PMOS wider than the NMOS in a balanced CMOS inverter?', 'Hole mobility is lower than electron mobility, roughly 2 to 3 times, so PMOS needs more width to match rise and fall times.'],
+  ['Tclk-q = 1 ns, combinational delay = 6 ns, setup = 1 ns, no skew. Maximum clock frequency?', 'Minimum period is 1 + 6 + 1 = 8 ns, so fmax = 125 MHz.'],
+  ['When does Verilog infer a latch in combinational logic?', 'When a signal is not assigned on every path, such as an if without else or a case without default.'],
+  ['States in a Johnson counter with n flip-flops? A ring counter?', 'Johnson: 2n states. Ring: n states.'],
+  ['Name the Pan-Tompkins stages.', 'Band-pass filter (about 5 to 15 Hz), derivative, squaring, moving-window integration, then adaptive thresholding for QRS detection.'],
+  ['Resonant frequency of an LC circuit?', 'f = 1 / (2π√(LC)).'],
+  ['Half-wave dipole: directivity and input impedance?', 'About 2.15 dBi and roughly 73 Ω in free space.'],
+  ['Why does I2C need pull-up resistors?', 'Devices only pull the lines low (open-drain). The pull-ups return them high, which also gives the wired-AND behaviour that arbitration relies on.'],
+  ['List the five AXI4 channels.', 'AW, W, B (write address, data, response) and AR, R (read address, data).'],
+  ['Three classes of pipeline hazard?', 'Structural, data (RAW, WAR, WAW), and control.'],
+  ['Why do asynchronous FIFOs send pointers across clock domains in Gray code?', 'Only one bit changes per increment, so a pointer sampled mid-change is off by at most one instead of being a random value.'],
+  ['Simplify A + A\'B.', 'A + B.'],
+  ['Ideal inverting op-amp amplifier gain?', '-Rf / Rin, thanks to the virtual short at the inverting input.'],
+  ['Dynamic power of a CMOS gate?', 'P = α · C · V² · f, with α the switching activity. Voltage scaling pays off quadratically.'],
+  ['What does a Mealy machine do that a Moore machine does not?', 'Its outputs depend on the current state and the current inputs, so it can react a cycle sooner but may glitch with input changes.'],
+  ['Why use a register slice or skid buffer on a ready/valid interface?', 'It cuts the combinational ready path so timing closes, and holds a word that arrives while downstream is stalled.']
+];
+function drillIndex() {
+  const t = todayISO();
+  if (S.drill.date !== t) { const n = new Date(); const doy = Math.floor((n - new Date(n.getFullYear(), 0, 0)) / 864e5); S.drill = { date: t, i: doy % DRILLS.length }; }
+  return S.drill.i % DRILLS.length;
+}
+function renderDrill() {
+  const i = drillIndex(), q = DRILLS[i], d = getDay(todayISO());
+  $('#cDrill').innerHTML = `
+    <h2><span>Daily drill</span><span>${d.drills || 0} today</span></h2>
+    <div class="q">${esc(q[0])}</div>
+    ${showAns ? `<div class="ans">${esc(q[1])}</div>` : ''}
+    <div class="row"><button class="btn" data-act="reveal">${showAns ? 'Hide answer' : 'Show answer'}</button><button class="btn" data-act="next-drill">Next question</button></div>`;
+}
+
+/* ---------- one-line log ---------- */
+function renderLog() {
+  const t = todayISO(), d = getDay(t);
+  const past = Object.keys(S.days).filter(k => k !== t && (S.days[k].log || '').trim()).sort().reverse().slice(0, 5);
+  $('#cLog').innerHTML = `
+    <h2><span>End-of-day log</span></h2>
+    <textarea id="logIn" placeholder="What did you ship or learn today?" aria-label="Today's log">${esc(d.log || '')}</textarea>
+    <div class="list">${past.map(k => `<div class="item"><span class="mono muted" style="font-size:12px;width:44px">${k.slice(8)}/${k.slice(5, 7)}</span><span class="t">${esc(S.days[k].log)}</span></div>`).join('')}</div>`;
+}
+
+function renderAll() { renderHeader(); renderCD(); renderFocus(); renderTasks(); renderHabits(); renderWeek(); renderMoney(); renderDrill(); renderLog(); if (!document.activeElement || document.activeElement.id !== 'ghTok') renderSync(); }
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act, i = +el.dataset.i, d = dayW();
+  switch (a) {
+    case 'start': startTimer('focus'); break;
+    case 'brk': startTimer('break'); break;
+    case 'stop': stopTimer(); break;
+    case 'subj': S.settings.lastSubject = el.dataset.v; save(); renderFocus(); break;
+    case 'dur': S.settings.focus = +el.dataset.v; save(); renderFocus(); break;
+    case 'tog-task': d.tasks[i].done = !d.tasks[i].done; save(); renderTasks(); renderHeader(); break;
+    case 'del-task': d.tasks.splice(i, 1); save(); renderTasks(); renderHeader(); break;
+    case 'carry': {
+      const y = getDay(addDays(todayISO(), -1));
+      y.tasks.filter(t => !t.done && !d.tasks.some(x => x.t === t.t)).forEach(t => d.tasks.push({ t: t.t, done: false }));
+      save(); renderTasks(); renderHeader(); break;
+    }
+    case 'tog-h': d.habits[el.dataset.id] = !d.habits[el.dataset.id]; save(); renderHabits(); renderHeader(); break;
+    case 'edit-h': editH = !editH; renderHabits(); break;
+    case 'edit-t': editT = !editT; renderFocus(); break;
+    case 'del-tag': {
+      if (S.settings.tags.length > 1) S.settings.tags.splice(i, 1);
+      if (!S.settings.tags.includes(S.settings.lastSubject)) S.settings.lastSubject = S.settings.tags[0];
+      save(); renderFocus(); break;
+    }
+    case 'sync-token': { const v = $('#ghTok').value.trim(); try { localStorage.setItem(TK, v); } catch (x) {} renderSync(); if (v) syncNow(); break; }
+    case 'sync-clear': try { localStorage.removeItem(TK); } catch (x) {} ghSha = null; renderSync(); break;
+    case 'sync-now': syncNow(); break;
+    case 'export': exportData(); break;
+    case 'import': importData(); break;
+    case 'del-h': S.settings.habits.splice(i, 1); save(); renderHabits(); renderHeader(); break;
+    case 'edit-cd': editCD = !editCD; renderCD(); break;
+    case 'del-exp': S.expenses = S.expenses.filter(x => x.id !== el.dataset.id); save(); renderMoney(); break;
+    case 'copy-exp': copyExpenses(); break;
+    case 'reveal': {
+      showAns = !showAns;
+      if (showAns) { d.drills = (d.drills || 0) + 1; save(); }
+      renderDrill(); break;
+    }
+    case 'next-drill': S.drill.i = (S.drill.i + 1) % DRILLS.length; showAns = false; save(); renderDrill(); break;
+  }
+});
+
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target.id, d = dayW();
+  if (f === 'taskForm') {
+    const v = $('#taskIn').value.trim(); if (!v) return;
+    d.tasks.push({ t: v, done: false }); save(); renderTasks(); renderHeader(); $('#taskIn').focus();
+  } else if (f === 'habitForm') {
+    const v = $('#habitIn').value.trim(); if (!v) return;
+    S.settings.habits.push({ id: uid(), name: v }); save(); renderHabits(); renderHeader(); $('#habitIn').focus();
+  } else if (f === 'expForm') {
+    const amt = parseFloat($('#expAmt').value); if (!(amt > 0)) return;
+    const cat = $('#expCat').value; S.settings.lastCat = cat;
+    S.expenses.push({ id: uid(), ts: Date.now(), date: todayISO(), amt, cat, note: $('#expNote').value.trim() });
+    save(); renderMoney(); $('#expAmt').focus();
+  } else if (f === 'tagForm') {
+    const v = $('#tagIn').value.trim(); if (!v || S.settings.tags.includes(v)) return;
+    S.settings.tags.push(v); save(); renderFocus(); $('#tagIn').focus();
+  } else if (f === 'manual') {
+    const m = parseInt($('#manMin').value, 10); if (!(m > 0)) return;
+    addFocus(S.settings.lastSubject, m); renderFocus(); renderWeek(); renderHeader();
+  }
+});
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.cd !== undefined) { S.settings.dates[+t.dataset.cd][t.dataset.f] = t.value; save(); if (t.dataset.f === 'date') renderCD(); }
+  if (t.dataset.tn !== undefined) {
+    const old = S.settings.tags[+t.dataset.tn], nv = t.value.trim();
+    if (nv && !S.settings.tags.includes(nv)) {
+      S.settings.tags[+t.dataset.tn] = nv;
+      if (S.settings.lastSubject === old) S.settings.lastSubject = nv;
+      Object.values(S.days).forEach(dd => { if (dd.focus && dd.focus[old] !== undefined) { dd.focus[nv] = (dd.focus[nv] || 0) + dd.focus[old]; delete dd.focus[old]; } });
+      save(); renderWeek();
+    } else t.value = old;
+  }
+  if (t.dataset.hn !== undefined) { S.settings.habits[+t.dataset.hn].name = t.value.trim() || 'Habit'; save(); }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'logIn') { dayW().log = e.target.value; save(); }
+  if (e.target.dataset && e.target.dataset.cd !== undefined && e.target.dataset.f === 'label') { S.settings.dates[+e.target.dataset.cd].label = e.target.value; save(); }
+});
+
+function copyExpenses() {
+  const rows = monthRows().slice().reverse();
+  const tsv = ['Date\tCategory\tNote\tAmount'].concat(rows.map(r => [r.date, r.cat, r.note, r.amt].join('\t'))).join('\n');
+  const box = $('#tsvBox');
+  const fallback = () => { box.value = tsv; box.classList.remove('hide'); box.focus(); box.select(); };
+  try { navigator.clipboard.writeText(tsv).then(() => setStatus('Copied ' + rows.length + ' rows'), fallback); } catch (e) { fallback(); }
+}
+
+/* ---------- boot ---------- */
+const local = loadLocal(); if (local) S = merge(local);
+renderAll();
+setStatus('Saved on this device');
+if (T.end && T.end <= Date.now()) finishTimer();
+setInterval(tick, 500);
+let lastDay = todayISO();
+setInterval(() => { const t = todayISO(); if (t !== lastDay) { lastDay = t; showAns = false; renderAll(); } }, 60000);
+initDb();
+if (getTok()) syncNow();
+document.addEventListener('visibilitychange', () => { if (!document.hidden && getTok() && !T.end) syncNow(); });
+try { if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+</script>
+</body>
+</html>
