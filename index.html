@@ -7,6 +7,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <meta name="theme-color" content="#2540ff">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Daily">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -149,7 +152,7 @@ footer{margin-top:20px;font:400 12px var(--mono);color:var(--mute);display:flex;
 </div>
 
 <script>
-const BUILD = '2026-11-17-c';
+const BUILD = '2026-11-17-d';
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const pad = n => String(n).padStart(2, '0');
@@ -849,6 +852,18 @@ initDb();
 if (getTok()) syncNow();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && getTok() && !T.end) syncNow(); });
 $('#ver').textContent = 'Saved as you go · build ' + BUILD;
+let lastCheck = 0;
+async function checkUpdate() {
+  if (Date.now() - lastCheck < 60000 || !location.protocol.startsWith('http')) return;
+  lastCheck = Date.now();
+  try {
+    const r = await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' });
+    const m = (await r.text()).match(/const BUILD = '([^']+)'/);
+    if (m && m[1] !== BUILD && !T.end) location.reload();
+  } catch (e) {}
+}
+checkUpdate();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 try {
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     const had = !!navigator.serviceWorker.controller; let rl = false;
