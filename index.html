@@ -144,11 +144,12 @@ footer{margin-top:20px;font:400 12px var(--mono);color:var(--mute);display:flex;
 
   <footer>
     <span id="status">Loading</span>
-    <span>Everything is saved as you go.</span>
+    <span id="ver"></span>
   </footer>
 </div>
 
 <script>
+const BUILD = '2026-11-17-c';
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const pad = n => String(n).padStart(2, '0');
@@ -847,7 +848,14 @@ setInterval(() => { const t = todayISO(); if (t !== lastDay) { lastDay = t; show
 initDb();
 if (getTok()) syncNow();
 document.addEventListener('visibilitychange', () => { if (!document.hidden && getTok() && !T.end) syncNow(); });
-try { if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {}
+$('#ver').textContent = 'Saved as you go · build ' + BUILD;
+try {
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    const had = !!navigator.serviceWorker.controller; let rl = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (had && !rl) { rl = true; location.reload(); } });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(r => r.update()).catch(() => {});
+  }
+} catch (e) {}
 </script>
 </body>
 </html>
