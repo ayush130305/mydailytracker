@@ -93,6 +93,34 @@ textarea{width:100%;resize:vertical;min-height:64px}
 .big{font:600 26px var(--mono);font-variant-numeric:tabular-nums}
 footer{margin-top:20px;font:400 12px var(--mono);color:var(--mute);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .hide{display:none}
+.tabs{margin:12px 0;gap:6px}
+.wi{display:flex;flex-direction:column;gap:6px;min-width:0}
+.wi>.card{flex:1}
+@media (min-width:760px){.wi.s2{grid-column:span 2}}
+.editing .wi{outline:1px dashed var(--line);outline-offset:4px;border-radius:12px}
+.wi.over{outline:2px solid var(--acc)}
+.wi.drag{opacity:.45}
+.wbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.grip{cursor:grab;color:var(--mute);font-size:18px;line-height:1;padding:0 4px;user-select:none}
+.wn{font:500 12px var(--mono);color:var(--mute);flex:1;min-width:80px}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.gi{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.btn:disabled{opacity:.45;cursor:default}
+.kan{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kcol{background:var(--bg);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:90px}
+.kh{display:flex;justify-content:space-between;font:500 11px var(--mono);color:var(--mute)}
+.kcard{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px;display:flex;flex-direction:column;gap:2px;overflow-wrap:anywhere}
+.kb{display:flex;justify-content:flex-end}
+.week.w8{grid-template-columns:repeat(8,1fr)}
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,auto);grid-auto-columns:1fr;gap:3px}
+.heat i{aspect-ratio:1;border-radius:2px;background:var(--line)}
+.heat i.fut{background:transparent}
+.heat i.l1{background:color-mix(in srgb,var(--acc) 25%,var(--line))}
+.heat i.l2{background:color-mix(in srgb,var(--acc) 50%,var(--line))}
+.heat i.l3{background:color-mix(in srgb,var(--acc) 75%,var(--line))}
+.heat i.l4{background:var(--acc)}
+.lk{display:inline-flex;align-items:center;gap:2px;border:1px solid var(--line);border-radius:999px;padding:3px 4px 3px 12px}
+.lk a{color:var(--acc);text-decoration:none;font-weight:500}
 @media (prefers-reduced-motion: reduce){.bar i{transition:none}}
 </style>
 </head>
@@ -103,22 +131,16 @@ footer{margin-top:20px;font:400 12px var(--mono);color:var(--mute);display:flex;
       <h1 id="greet"></h1>
       <div class="sub" id="dateLine"></div>
     </div>
-    <div class="sum" id="summary"></div>
+    <div class="row"><div class="sum" id="summary"></div><button class="btn" data-act="customize" id="custBtn">Customize</button></div>
   </header>
 
   <section class="cds" id="cds" aria-label="Countdowns"></section>
   <div class="row" id="cdRow" style="margin-bottom:12px"><button class="btn tiny" data-act="edit-cd" id="cdEditBtn">Edit dates</button><button class="btn tiny hide" data-act="add-cd" id="cdAddBtn">Add date</button></div>
 
-  <main class="grid">
-    <section class="card" id="cFocus"></section>
-    <section class="card" id="cTasks"></section>
-    <section class="card" id="cHabits"></section>
-    <section class="card" id="cWeek"></section>
-    <section class="card" id="cMoney"></section>
-    <section class="card" id="cDrill"></section>
-    <section class="card" id="cLog"></section>
-    <section class="card" id="cSync"></section>
-  </main>
+  <nav class="row tabs" id="tabs"></nav>
+  <div class="row hide" id="pageTools" style="margin-bottom:12px"></div>
+  <section class="card hide" id="gallery" style="margin-bottom:12px"></section>
+  <main class="grid" id="grid"></main>
 
   <footer>
     <span id="status">Loading</span>
@@ -136,6 +158,7 @@ const addDays = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.get
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtMin = m => m < 60 ? m + 'm' : Math.floor(m / 60) + 'h ' + pad(m % 60) + 'm';
 const fmtMoney = n => '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+const box = id => ({ set innerHTML(v) { const e = document.getElementById(id); if (e) e.innerHTML = v; } });
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 const CATS = ['Food', 'Travel', 'Components', 'Running', 'Study', 'Other'];
@@ -157,10 +180,17 @@ const DEFAULT = {
     ],
     sync: { repo: 'ayush130305/mydailytracker-data', path: 'data/state.json', branch: 'main' }
   },
+  layout: { cur: 0, pages: [
+    { id: 'p1', name: 'Today', widgets: [{ id: 'focus', type: 'focus', size: 1 }, { id: 'tasks', type: 'tasks', size: 1 }, { id: 'habits', type: 'habits', size: 1 }, { id: 'week', type: 'week', size: 1 }, { id: 'log', type: 'log', size: 1 }, { id: 'drill', type: 'drill', size: 1 }] },
+    { id: 'p2', name: 'Plan', widgets: [{ id: 'board1', type: 'board', size: 2 }, { id: 'ideas1', type: 'ideas', size: 1 }, { id: 'review1', type: 'review', size: 1 }, { id: 'links1', type: 'links', size: 1 }, { id: 'pad1', type: 'pad', size: 1 }] },
+    { id: 'p3', name: 'Track', widgets: [{ id: 'money', type: 'money', size: 1 }, { id: 'counters1', type: 'counters', size: 1 }, { id: 'runs1', type: 'runs', size: 1 }, { id: 'heat1', type: 'heat', size: 1 }, { id: 'watch1', type: 'watch', size: 1 }, { id: 'clocks1', type: 'clocks', size: 1 }] },
+    { id: 'p4', name: 'Settings', widgets: [{ id: 'sync', type: 'sync', size: 1 }] }
+  ] },
+  wd: {},
   days: {}, expenses: [], drill: { date: '', i: 0 }, savedAt: 0
 };
 let S = structuredClone(DEFAULT);
-let editCD = false, editH = false, editT = false, showAns = false;
+let editCD = false, editH = false, editT = false, editL = false, showAns = false;
 
 function merge(r) {
   const base = structuredClone(DEFAULT);
@@ -171,6 +201,10 @@ function merge(r) {
   if (!Array.isArray(out.settings.dates)) out.settings.dates = structuredClone(DEFAULT.settings.dates);
   if (!Array.isArray(out.settings.tags) || !out.settings.tags.length) out.settings.tags = structuredClone(DEFAULT.settings.tags);
   out.settings.sync = Object.assign({}, DEFAULT.settings.sync, r.settings && r.settings.sync);
+  const L = r.layout;
+  out.layout = (L && Array.isArray(L.pages) && L.pages.length && L.pages.every(p => Array.isArray(p.widgets))) ? L : structuredClone(DEFAULT.layout);
+  if (typeof out.layout.cur !== 'number') out.layout.cur = 0;
+  if (!out.wd || typeof out.wd !== 'object') out.wd = {};
   if (!out.days || typeof out.days !== 'object') out.days = {};
   if (!Array.isArray(out.expenses)) out.expenses = [];
   if (!out.drill) out.drill = { date: '', i: 0 };
@@ -248,7 +282,7 @@ function importData() {
 }
 function renderSync() {
   const on = !!getTok(), s = S.settings.sync;
-  $('#cSync').innerHTML = `
+  box('cSync').innerHTML = `
     <h2><span>Sync and backup</span><span>${on ? 'GitHub on' : 'This device only'}</span></h2>
     <div class="muted" style="font-size:13px">Data repo below should be private, because this repo is public. Paste a GitHub token with Contents read/write on it on each device. It stays in this browser and is never saved into your data.</div>
     <div class="row"><input class="grow" data-repo="1" value="${esc(s.repo)}" aria-label="Data repository (owner/name)" placeholder="owner/private-data-repo"></div>
@@ -347,7 +381,7 @@ function tick() {
 function renderFocus() {
   const running = !!T.end, s = S.settings;
   const shown = running ? '' : pad(s.focus) + ':00';
-  $('#cFocus').innerHTML = `
+  box('cFocus').innerHTML = `
     <h2><span>Focus</span><span>${running ? (T.mode === 'focus' ? T.subject : 'Break') : 'Ready'}</span></h2>
     <div class="timer" id="tmr">${shown}</div>
     <div class="bar"><i id="tpr"></i></div>
@@ -365,7 +399,7 @@ function renderFocus() {
 function renderTasks() {
   const d = getDay(todayISO()), y = getDay(addDays(todayISO(), -1));
   const carry = y.tasks.filter(t => !t.done && !d.tasks.some(x => x.t === t.t));
-  $('#cTasks').innerHTML = `
+  box('cTasks').innerHTML = `
     <h2><span>Today's list</span><span>${d.tasks.filter(t => t.done).length}/${d.tasks.length}</span></h2>
     <form class="row" id="taskForm"><input class="grow" id="taskIn" placeholder="What has to happen today" aria-label="New task"><button class="btn pri" type="submit">Add</button></form>
     <div class="list">${d.tasks.map((t, i) => `<div class="item ${t.done ? 'done' : ''}"><button class="box ${t.done ? 'on' : ''}" data-act="tog-task" data-i="${i}" aria-label="Toggle">${t.done ? '✓' : ''}</button><span class="t">${esc(t.t)}</span><button class="x" data-act="del-task" data-i="${i}" aria-label="Delete">×</button></div>`).join('') || '<span class="muted">Nothing yet. Add the three things that matter.</span>'}</div>
@@ -377,7 +411,7 @@ const streak = test => { let d = todayISO(), n = 0; if (!test(d)) d = addDays(d,
 function renderHabits() {
   const today = todayISO(), d = getDay(today);
   const last14 = [...Array(14)].map((_, i) => addDays(today, i - 13));
-  $('#cHabits').innerHTML = `
+  box('cHabits').innerHTML = `
     <h2><span>Habits</span><button class="btn tiny" data-act="edit-h">${editH ? 'Done' : 'Edit'}</button></h2>
     <div class="list">${S.settings.habits.map((h, i) => {
       const on = !!d.habits[h.id], st = streak(x => getDay(x).habits[h.id]);
@@ -396,7 +430,7 @@ function renderWeek() {
   const bySubj = {}; days.forEach(d => Object.entries(getDay(d).focus || {}).forEach(([k, v]) => bySubj[k] = (bySubj[k] || 0) + v));
   const total = mins.reduce((a, b) => a + b, 0);
   const st = streak(x => focusSum(getDay(x)) >= 25);
-  $('#cWeek').innerHTML = `
+  box('cWeek').innerHTML = `
     <h2><span>Last 7 days</span><span>${fmtMin(total)}</span></h2>
     <div class="week">${days.map((d, i) => `<div class="col ${i === 6 ? 'today' : ''}"><span class="bv">${mins[i] ? (mins[i] >= 60 ? (mins[i] / 60).toFixed(1) + 'h' : mins[i] + 'm') : ''}</span><div class="track"><i style="height:${mins[i] / max * 100}%"></i></div><span class="bl">${new Date(d + 'T12:00:00').toLocaleDateString('en-IN', { weekday: 'narrow' })}</span></div>`).join('')}</div>
     <div class="stats"><span>Study streak <b>${st}d</b></span>${Object.keys(bySubj).map(k => `<span>${esc(k)} <b>${fmtMin(bySubj[k])}</b></span>`).join('')}</div>
@@ -410,7 +444,7 @@ function renderMoney() {
   const mTot = rows.reduce((a, e) => a + e.amt, 0), tTot = rows.filter(e => e.date === today).reduce((a, e) => a + e.amt, 0);
   const byC = {}; rows.forEach(e => byC[e.cat] = (byC[e.cat] || 0) + e.amt);
   const maxC = Math.max(1, ...Object.values(byC));
-  $('#cMoney').innerHTML = `
+  box('cMoney').innerHTML = `
     <h2><span>Spending</span><button class="btn tiny" data-act="copy-exp">Copy month as TSV</button></h2>
     <div class="row" style="gap:24px"><div><div class="big">${fmtMoney(tTot)}</div><div class="muted mono" style="font-size:12px">today</div></div><div><div class="big">${fmtMoney(mTot)}</div><div class="muted mono" style="font-size:12px">${new Date().toLocaleDateString('en-IN', { month: 'long' })}</div></div></div>
     <form class="row" id="expForm"><input id="expAmt" type="number" inputmode="decimal" min="0" step="any" placeholder="₹" style="width:90px" aria-label="Amount" required><select id="expCat" aria-label="Category">${CATS.map(c => `<option ${c === S.settings.lastCat ? 'selected' : ''}>${c}</option>`).join('')}</select><input class="grow" id="expNote" placeholder="Note" aria-label="Note"><button class="btn pri" type="submit">Add</button></form>
@@ -453,7 +487,7 @@ function drillIndex() {
 }
 function renderDrill() {
   const i = drillIndex(), q = DRILLS[i], d = getDay(todayISO());
-  $('#cDrill').innerHTML = `
+  box('cDrill').innerHTML = `
     <h2><span>Daily drill</span><span>${d.drills || 0} today</span></h2>
     <div class="q">${esc(q[0])}</div>
     ${showAns ? `<div class="ans">${esc(q[1])}</div>` : ''}
@@ -464,13 +498,16 @@ function renderDrill() {
 function renderLog() {
   const t = todayISO(), d = getDay(t);
   const past = Object.keys(S.days).filter(k => k !== t && (S.days[k].log || '').trim()).sort().reverse().slice(0, 5);
-  $('#cLog').innerHTML = `
+  box('cLog').innerHTML = `
     <h2><span>End-of-day log</span></h2>
     <textarea id="logIn" placeholder="What did you ship or learn today?" aria-label="Today's log">${esc(d.log || '')}</textarea>
     <div class="list">${past.map(k => `<div class="item"><span class="mono muted" style="font-size:12px;width:44px">${k.slice(8)}/${k.slice(5, 7)}</span><span class="t">${esc(S.days[k].log)}</span></div>`).join('')}</div>`;
 }
 
-function renderAll() { renderHeader(); renderCD(); renderFocus(); renderTasks(); renderHabits(); renderWeek(); renderMoney(); renderDrill(); renderLog(); if (!document.activeElement || document.activeElement.id !== 'ghTok') renderSync(); }
+function renderAll() {
+  renderHeader(); renderCD(); renderTabs();
+  if (!document.activeElement || document.activeElement.id !== 'ghTok') { renderGrid(); renderGallery(); }
+}
 
 /* ---------- events ---------- */
 document.addEventListener('click', e => {
@@ -502,6 +539,25 @@ document.addEventListener('click', e => {
     case 'sync-now': syncNow(); break;
     case 'export': exportData(); break;
     case 'import': importData(); break;
+    case 'customize': editL = !editL; renderTabs(); renderGrid(); renderGallery(); break;
+    case 'page': S.layout.cur = i; save(); renderTabs(); renderGrid(); break;
+    case 'page-add': S.layout.pages.push({ id: uid(), name: 'New page', widgets: [] }); S.layout.cur = S.layout.pages.length - 1; save(); renderTabs(); renderGrid(); renderGallery(); break;
+    case 'page-del': if (S.layout.pages.length > 1) { S.layout.pages.splice(S.layout.cur, 1); S.layout.cur = 0; save(); renderTabs(); renderGrid(); renderGallery(); } break;
+    case 'w-left': case 'w-right': { const ws = curPage().widgets, j = a === 'w-left' ? i - 1 : i + 1; if (j >= 0 && j < ws.length) { [ws[i], ws[j]] = [ws[j], ws[i]]; save(); renderGrid(); } break; }
+    case 'w-size': { const x = curPage().widgets[i], cur = x.size || CAT[x.type].size || 1; x.size = cur === 2 ? 1 : 2; save(); renderGrid(); break; }
+    case 'w-del': curPage().widgets.splice(i, 1); save(); renderGrid(); renderGallery(); break;
+    case 'g-add': { const c = CAT[el.dataset.t]; curPage().widgets.push({ id: c.single ? el.dataset.t : uid(), type: el.dataset.t, size: c.size || 1 }); save(); renderGrid(); renderGallery(); break; }
+    case 'b-mv': { const dd = wdata(findInst(el.dataset.w)), k = dd.cards.find(x => x.id === el.dataset.id); if (k) { k.col = Math.max(0, Math.min(2, k.col + +el.dataset.d)); save(); refresh(el.dataset.w); } break; }
+    case 'b-del': delItem(el, 'cards'); break;
+    case 'i-del': delItem(el, 'items'); break;
+    case 'i-task': { const dd = wdata(findInst(el.dataset.w)), it = dd.items.find(x => x.id === el.dataset.id); if (it) { d.tasks.push({ t: it.t.replace(/#\w+/g, '').trim() || it.t, done: false }); dd.items = dd.items.filter(x => x !== it); save(); refresh(el.dataset.w); renderTasks(); renderHeader(); } break; }
+    case 'c-inc': { const w = findInst(el.dataset.w), dd = wdata(w), it = dd.items.find(x => x.id === el.dataset.id); if (it) { const day = dd.vals[todayISO()] || (dd.vals[todayISO()] = {}); day[it.id] = Math.max(0, Math.round(((day[it.id] || 0) + (+el.dataset.d) * it.step) * 100) / 100); save(); refresh(w.id); } break; }
+    case 'c-del': delItem(el, 'items'); break;
+    case 'r-del': delItem(el, 'runs'); break;
+    case 'wl-hit': { const dd = wdata(findInst(el.dataset.w)), it = dd.items.find(x => x.id === el.dataset.id); if (it) { it.hit = !it.hit; save(); refresh(el.dataset.w); } break; }
+    case 'wl-del': delItem(el, 'items'); break;
+    case 'l-del': delItem(el, 'items'); break;
+    case 'z-del': { const dd = wdata(findInst(el.dataset.w)); dd.zones = dd.zones.filter(z => z !== el.dataset.id); save(); refresh(el.dataset.w); break; }
     case 'del-h': S.settings.habits.splice(i, 1); save(); renderHabits(); renderHeader(); break;
     case 'edit-cd': editCD = !editCD; if (editCD && !S.settings.dates.length) S.settings.dates.push({ id: uid(), label: 'New date', date: todayISO() }), save(); renderCD(); break;
     case 'add-cd': S.settings.dates.push({ id: uid(), label: 'New date', date: todayISO() }); save(); renderCD(); break;
@@ -519,6 +575,7 @@ document.addEventListener('click', e => {
 
 document.addEventListener('submit', e => {
   e.preventDefault();
+  if (e.target.dataset.form) { wForm(e.target.dataset.form, e.target); return; }
   const f = e.target.id, d = dayW();
   if (f === 'taskForm') {
     const v = $('#taskIn').value.trim(); if (!v) return;
@@ -544,6 +601,8 @@ document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.cd !== undefined) { S.settings.dates[+t.dataset.cd][t.dataset.f] = t.value; save(); if (t.dataset.f === 'date') renderCD(); }
   if (t.dataset.repo !== undefined) { S.settings.sync.repo = t.value.trim() || DEFAULT.settings.sync.repo; ghSha = null; save(); }
+  if (t.dataset.pn !== undefined) { curPage().name = t.value.trim() || 'Page'; save(); renderTabs(); }
+  if (t.dataset.hs !== undefined) { wdata(findInst(t.dataset.w)).src = t.value; save(); refresh(t.dataset.w); }
   if (t.dataset.tn !== undefined) {
     const old = S.settings.tags[+t.dataset.tn], nv = t.value.trim();
     if (nv && !S.settings.tags.includes(nv)) {
@@ -556,6 +615,8 @@ document.addEventListener('change', e => {
   if (t.dataset.hn !== undefined) { S.settings.habits[+t.dataset.hn].name = t.value.trim() || 'Habit'; save(); }
 });
 document.addEventListener('input', e => {
+  if (e.target.dataset && e.target.dataset.wnote) { const dd = wdata(findInst(e.target.dataset.w)), wk = weekStart(); (dd.weeks[wk] || (dd.weeks[wk] = {}))[e.target.dataset.wnote] = e.target.value; save(); }
+  if (e.target.dataset && e.target.dataset.pad) { wdata(findInst(e.target.dataset.w)).text = e.target.value; save(); }
   if (e.target.id === 'logIn') { dayW().log = e.target.value; save(); }
   if (e.target.dataset && e.target.dataset.cd !== undefined && e.target.dataset.f === 'label') { S.settings.dates[+e.target.dataset.cd].label = e.target.value; save(); }
 });
@@ -567,6 +628,213 @@ function copyExpenses() {
   const fallback = () => { box.value = tsv; box.classList.remove('hide'); box.focus(); box.select(); };
   try { navigator.clipboard.writeText(tsv).then(() => setStatus('Copied ' + rows.length + ' rows'), fallback); } catch (e) { fallback(); }
 }
+
+/* ---------- widget system: catalog, layout, drag and drop ---------- */
+const wdata = w => S.wd[w.id] || (S.wd[w.id] = CAT[w.type].init());
+const wEl = w => document.getElementById('w-' + w.id);
+const findInst = id => { for (const p of S.layout.pages) { const w = p.widgets.find(x => x.id === id); if (w) return w; } return null; };
+const refresh = id => { const w = findInst(id); if (w) CAT[w.type].fill(w); };
+const weekStart = () => addDays(todayISO(), -((new Date().getDay() + 6) % 7));
+const fmtPace = p => { if (!isFinite(p) || p <= 0) return '–'; let m = Math.floor(p), s = Math.round((p - m) * 60); if (s === 60) { m++; s = 0; } return m + ':' + pad(s) + ' /km'; };
+const head = (t, r) => `<h2><span>${t}</span><span>${r === undefined ? '' : r}</span></h2>`;
+const curPage = () => { const L = S.layout; if (L.cur >= L.pages.length) L.cur = 0; return L.pages[L.cur]; };
+const placed = t => S.layout.pages.some(p => p.widgets.some(w => w.type === t));
+const delItem = (el, key) => { const w = findInst(el.dataset.w), dd = wdata(w); dd[key] = dd[key].filter(x => x.id !== el.dataset.id); save(); refresh(w.id); };
+const A = (w, extra) => `data-w="${w.id}" ${extra || ''}`;
+
+function renderTabs() {
+  const L = S.layout; if (L.cur >= L.pages.length) L.cur = 0;
+  let h = L.pages.map((p, i) => `<button class="chip ${i === L.cur ? 'on' : ''}" data-act="page" data-i="${i}">${esc(p.name)}</button>`).join('');
+  if (editL) h += '<button class="chip" data-act="page-add">+ Page</button>';
+  $('#tabs').innerHTML = h;
+  $('#tabs').classList.toggle('hide', L.pages.length < 2 && !editL);
+  const t = $('#pageTools'); t.classList.toggle('hide', !editL);
+  if (editL) t.innerHTML = `<input data-pn="1" value="${esc(curPage().name)}" aria-label="Page name">${L.pages.length > 1 ? '<button class="btn tiny" data-act="page-del">Delete this page</button>' : ''}<span class="muted" style="font-size:12px">Drag a widget by its handle, or use the arrows.</span>`;
+  $('#custBtn').textContent = editL ? 'Done' : 'Customize';
+}
+function renderGrid() {
+  const pg = curPage();
+  $('#grid').innerHTML = pg.widgets.map((w, i) => {
+    const c = CAT[w.type]; if (!c) return '';
+    const id = c.el || ('w-' + w.id), sz = w.size || c.size || 1;
+    const bar = editL ? `<div class="wbar"><span class="grip" title="Drag to move">⠿</span><span class="wn">${esc(c.name)}</span><button class="btn tiny" data-act="w-left" data-i="${i}" aria-label="Move earlier">‹</button><button class="btn tiny" data-act="w-right" data-i="${i}" aria-label="Move later">›</button><button class="btn tiny" data-act="w-size" data-i="${i}">${sz === 2 ? 'Narrow' : 'Wide'}</button><button class="btn tiny" data-act="w-del" data-i="${i}">Remove</button></div>` : '';
+    return `<div class="wi s${sz}" data-wid="${w.id}" ${editL ? 'draggable="true"' : ''}>${bar}<section class="card" id="${id}"></section></div>`;
+  }).join('') || '<div class="muted">This page is empty. Press Customize, then add a widget.</div>';
+  document.body.classList.toggle('editing', editL);
+  pg.widgets.forEach(w => { const c = CAT[w.type]; if (c) c.fill(w); });
+  updClocks();
+}
+function renderGallery() {
+  const g = $('#gallery'); g.classList.toggle('hide', !editL);
+  if (!editL) return;
+  g.innerHTML = head('Add a widget', 'to “' + esc(curPage().name) + '”') + `<div class="gal">${Object.entries(CAT).map(([t, c]) => { const used = c.single && placed(t); return `<div class="gi"><div><b>${esc(c.name)}</b><div class="muted" style="font-size:12px">${esc(c.desc)}</div></div><button class="btn" ${used ? 'disabled' : ''} data-act="g-add" data-t="${t}">${used ? 'Placed' : 'Add'}</button></div>`; }).join('')}</div>`;
+}
+
+let dragId = null;
+document.addEventListener('dragstart', e => {
+  const w = e.target.closest && e.target.closest('.wi'); if (!w || !editL) return;
+  dragId = w.dataset.wid; e.dataTransfer.effectAllowed = 'move';
+  try { e.dataTransfer.setData('text/plain', dragId); } catch (x) {}
+  w.classList.add('drag');
+});
+document.addEventListener('dragover', e => {
+  if (!dragId) return; const w = e.target.closest && e.target.closest('.wi'); if (!w) return;
+  e.preventDefault();
+  document.querySelectorAll('.wi.over').forEach(x => x.classList.remove('over'));
+  if (w.dataset.wid !== dragId) w.classList.add('over');
+});
+document.addEventListener('drop', e => {
+  if (!dragId) return; const w = e.target.closest && e.target.closest('.wi'); if (!w) return;
+  e.preventDefault();
+  const ws = curPage().widgets, from = ws.findIndex(x => x.id === dragId), to = ws.findIndex(x => x.id === w.dataset.wid);
+  if (from >= 0 && to >= 0 && from !== to) { const [m] = ws.splice(from, 1); ws.splice(to, 0, m); save(); }
+  dragId = null; renderGrid();
+});
+document.addEventListener('dragend', () => { dragId = null; document.querySelectorAll('.wi.drag,.wi.over').forEach(x => x.classList.remove('drag', 'over')); });
+
+/* ---------- widget: project board ---------- */
+function wBoard(w) {
+  const d = wdata(w), cols = ['To do', 'Doing', 'Done'];
+  wEl(w).innerHTML = head('Project board', d.cards.length) + `
+    <form class="row" data-form="b-add" ${A(w)}><input class="grow" name="t" placeholder="New card" aria-label="New card" required><button class="btn pri" type="submit">Add</button></form>
+    <div class="kan">${cols.map((c, ci) => { const cs = d.cards.filter(k => k.col === ci); return `<div class="kcol"><div class="kh"><span>${c}</span><span>${cs.length}</span></div>${cs.map(k => `<div class="kcard"><span>${esc(k.t)}</span><span class="kb">${ci > 0 ? `<button class="x" data-act="b-mv" ${A(w, `data-id="${k.id}" data-d="-1"`)} aria-label="Move left">‹</button>` : ''}${ci < 2 ? `<button class="x" data-act="b-mv" ${A(w, `data-id="${k.id}" data-d="1"`)} aria-label="Move right">›</button>` : ''}<button class="x" data-act="b-del" ${A(w, `data-id="${k.id}"`)} aria-label="Delete">×</button></span></div>`).join('')}</div>`; }).join('')}</div>`;
+}
+
+/* ---------- widget: idea inbox ---------- */
+function wIdeas(w) {
+  const d = wdata(w);
+  wEl(w).innerHTML = head('Idea inbox', d.items.length) + `
+    <form class="row" data-form="i-add" ${A(w)}><input class="grow" name="t" placeholder="Capture it. Add #tags if you like" aria-label="Idea" required><button class="btn pri" type="submit">Save</button></form>
+    <div class="list">${d.items.slice(0, 8).map(it => { const tags = (it.t.match(/#\w+/g) || []); const txt = it.t.replace(/#\w+/g, '').trim() || it.t; return `<div class="item"><span class="t">${esc(txt)} ${tags.map(g => `<span class="chip on" style="padding:1px 7px">${esc(g)}</span>`).join(' ')}</span><button class="btn tiny" data-act="i-task" ${A(w, `data-id="${it.id}"`)}>To task</button><button class="x" data-act="i-del" ${A(w, `data-id="${it.id}"`)} aria-label="Delete">×</button></div>`; }).join('') || '<span class="muted">Nothing captured yet.</span>'}</div>
+    ${d.items.length > 8 ? `<div class="muted mono" style="font-size:12px">+ ${d.items.length - 8} older</div>` : ''}`;
+}
+
+/* ---------- widget: weekly review ---------- */
+function wReview(w) {
+  const d = wdata(w), wk = weekStart(), today = todayISO(), days = [...Array(7)].map((_, i) => addDays(today, i - 6));
+  const foc = days.reduce((a, x) => a + focusSum(getDay(x)), 0);
+  const hs = S.settings.habits, hits = days.reduce((a, x) => a + hs.filter(h => getDay(x).habits[h.id]).length, 0);
+  const pct = hs.length ? Math.round(hits / (hs.length * 7) * 100) : 0;
+  const tk = days.reduce((a, x) => a + getDay(x).tasks.filter(t => t.done).length, 0);
+  const sp = S.expenses.filter(e => e.date >= days[0] && e.date <= today).reduce((a, e) => a + e.amt, 0);
+  const n = d.weeks[wk] || {};
+  const P = [['a', 'What went well'], ['b', 'What slipped'], ['c', 'One focus for next week']];
+  wEl(w).innerHTML = head('Weekly review', 'week of ' + wk.slice(8) + '/' + wk.slice(5, 7)) + `
+    <div class="stats"><span>Focus <b>${fmtMin(foc)}</b></span><span>Habits <b>${pct}%</b></span><span>Tasks done <b>${tk}</b></span><span>Spent <b>${fmtMoney(sp)}</b></span></div>
+    ${P.map(([k, l]) => `<label class="muted" style="font-size:12px">${l}</label><textarea style="min-height:48px" data-wnote="${k}" ${A(w)} aria-label="${l}">${esc(n[k] || '')}</textarea>`).join('')}`;
+}
+
+/* ---------- widget: counters ---------- */
+function wCounters(w) {
+  const d = wdata(w), v = d.vals[todayISO()] || {};
+  wEl(w).innerHTML = head('Counters', 'today') + `
+    <div class="list">${d.items.map(it => { const n = v[it.id] || 0, p = it.goal ? Math.min(100, n / it.goal * 100) : 0; return `<div class="item"><div class="grow"><div class="row" style="justify-content:space-between"><span>${esc(it.name)}</span><span class="mono">${n}${it.goal ? ' / ' + it.goal : ''}</span></div><div class="bar"><i style="width:${p}%"></i></div></div><button class="btn tiny" data-act="c-inc" ${A(w, `data-id="${it.id}" data-d="-1"`)} aria-label="Decrease">−</button><button class="btn tiny" data-act="c-inc" ${A(w, `data-id="${it.id}" data-d="1"`)} aria-label="Increase">+</button><button class="x" data-act="c-del" ${A(w, `data-id="${it.id}"`)} aria-label="Delete">×</button></div>`; }).join('') || '<span class="muted">No counters yet.</span>'}</div>
+    <form class="row" data-form="c-add" ${A(w)}><input class="grow" name="name" placeholder="Name" aria-label="Counter name" required><input name="goal" type="number" step="any" placeholder="Goal" style="width:70px" aria-label="Goal"><input name="step" type="number" step="any" placeholder="Step" style="width:70px" aria-label="Step"><button class="btn" type="submit">Add</button></form>`;
+}
+
+/* ---------- widget: run log ---------- */
+function wRuns(w) {
+  const d = wdata(w), t = todayISO(), s30 = addDays(t, -29), ws = weekStart();
+  const km = (a, b) => d.runs.filter(r => r.date >= a && r.date <= b).reduce((x, r) => x + r.km, 0);
+  const r30 = d.runs.filter(r => r.date >= s30 && r.date <= t), timed = r30.filter(r => r.min > 0);
+  const pace = timed.reduce((a, r) => a + r.min, 0) / (timed.reduce((a, r) => a + r.km, 0) || 1);
+  const longest = r30.reduce((x, r) => Math.max(x, r.km), 0);
+  const monthKm = d.runs.filter(r => r.date.startsWith(t.slice(0, 7))).reduce((a, r) => a + r.km, 0);
+  const bars = [...Array(8)].map((_, i) => { const a = addDays(ws, -7 * (7 - i)); return [a, km(a, addDays(a, 6))]; });
+  const mx = Math.max(10, ...bars.map(b => b[1]));
+  const rows = d.runs.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
+  wEl(w).innerHTML = head('Run log', km(ws, t).toFixed(1) + ' km this week') + `
+    <div class="week w8">${bars.map((b, i) => `<div class="col ${i === 7 ? 'today' : ''}"><span class="bv">${b[1] ? Math.round(b[1]) : ''}</span><div class="track"><i style="height:${b[1] / mx * 100}%"></i></div><span class="bl">${b[0].slice(8)}</span></div>`).join('')}</div>
+    <div class="stats"><span>Month <b>${monthKm.toFixed(1)} km</b></span><span>Avg pace <b>${fmtPace(pace)}</b></span><span>Longest (30d) <b>${longest.toFixed(1)} km</b></span></div>
+    <form class="row" data-form="r-add" ${A(w)}><input name="km" type="number" step="any" min="0" placeholder="km" style="width:70px" aria-label="Distance in km" required><input name="min" type="number" step="any" min="0" placeholder="min" style="width:70px" aria-label="Minutes"><input class="grow" name="note" placeholder="Note" aria-label="Note"><button class="btn pri" type="submit">Log</button></form>
+    <div class="list">${rows.map(r => `<div class="item"><span class="mono muted" style="font-size:12px;width:44px">${r.date.slice(8)}/${r.date.slice(5, 7)}</span><span class="t">${r.km} km${r.min ? ' · ' + fmtPace(r.min / r.km) : ''}${r.note ? ' · ' + esc(r.note) : ''}</span><button class="x" data-act="r-del" ${A(w, `data-id="${r.id}"`)} aria-label="Delete">×</button></div>`).join('')}</div>`;
+}
+
+/* ---------- widget: streak heatmap ---------- */
+function wHeat(w) {
+  const d = wdata(w), today = todayISO(), start = addDays(weekStart(), -25 * 7);
+  const test = d.src === 'focus' ? (x => focusSum(getDay(x)) >= 25) : (x => getDay(x).habits[d.src]);
+  const lvl = x => { if (x > today) return 'fut'; if (d.src === 'focus') { const m = focusSum(getDay(x)); return m >= 120 ? 'l4' : m >= 60 ? 'l3' : m >= 25 ? 'l2' : m > 0 ? 'l1' : ''; } return getDay(x).habits[d.src] ? 'l4' : ''; };
+  const cells = [...Array(182)].map((_, i) => { const x = addDays(start, i); return `<i class="${lvl(x)}" title="${x}"></i>`; }).join('');
+  const opts = [['focus', 'Focus (25 min or more)']].concat(S.settings.habits.map(h => [h.id, h.name]));
+  wEl(w).innerHTML = head('Streak heatmap', streak(test) + 'd streak') + `
+    <select data-hs="1" ${A(w)} aria-label="Heatmap source">${opts.map(o => `<option value="${esc(o[0])}" ${o[0] === d.src ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select>
+    <div class="heat" aria-hidden="true">${cells}</div><div class="muted mono" style="font-size:11px">Last 26 weeks, oldest on the left</div>`;
+}
+
+/* ---------- widget: watchlist ---------- */
+function wWatch(w) {
+  const d = wdata(w);
+  wEl(w).innerHTML = head('Watchlist', d.items.length) + `
+    <form class="row" data-form="wl-add" ${A(w)}><input name="sym" placeholder="Ticker" style="width:90px" aria-label="Ticker" required><input name="target" placeholder="Target ₹" style="width:90px" aria-label="Target price"><input class="grow" name="note" placeholder="Why it is here" aria-label="Note"><button class="btn pri" type="submit">Add</button></form>
+    <div class="list">${d.items.map(it => `<div class="item ${it.hit ? 'done' : ''}"><button class="box ${it.hit ? 'on' : ''}" data-act="wl-hit" ${A(w, `data-id="${it.id}"`)} aria-label="Mark target hit">${it.hit ? '✓' : ''}</button><span class="t"><b class="mono">${esc(it.sym)}</b>${it.target ? ' · ' + esc(it.target) : ''}${it.note ? ' · ' + esc(it.note) : ''}</span><button class="x" data-act="wl-del" ${A(w, `data-id="${it.id}"`)} aria-label="Delete">×</button></div>`).join('') || '<span class="muted">Add tickers or IPOs you are tracking. Prices are entered by you.</span>'}</div>`;
+}
+
+/* ---------- widget: quick links ---------- */
+function wLinks(w) {
+  const d = wdata(w);
+  wEl(w).innerHTML = head('Quick links') + `
+    <div class="row">${d.items.map(it => `<span class="lk"><a href="${esc(it.url)}" target="_blank" rel="noopener noreferrer">${esc(it.label)}</a><button class="x" data-act="l-del" ${A(w, `data-id="${it.id}"`)} aria-label="Remove">×</button></span>`).join('') || '<span class="muted">No links yet.</span>'}</div>
+    <form class="row" data-form="l-add" ${A(w)}><input name="label" placeholder="Label" style="width:110px" aria-label="Label"><input class="grow" name="url" placeholder="example.com" aria-label="Address" required><button class="btn" type="submit">Add</button></form>`;
+}
+
+/* ---------- widget: scratchpad ---------- */
+function wPad(w) {
+  const d = wdata(w);
+  wEl(w).innerHTML = head('Scratchpad') + `<textarea style="min-height:180px;flex:1" data-pad="1" ${A(w)} placeholder="Anything. It saves as you type." aria-label="Scratchpad">${esc(d.text)}</textarea>`;
+}
+
+/* ---------- widget: world clocks ---------- */
+const ZONES = [['Asia/Kolkata', 'India'], ['UTC', 'UTC'], ['America/Los_Angeles', 'US Pacific'], ['America/New_York', 'US Eastern'], ['Europe/London', 'London'], ['Europe/Berlin', 'Central Europe'], ['Asia/Tokyo', 'Tokyo'], ['Asia/Singapore', 'Singapore'], ['Asia/Dubai', 'Dubai'], ['Australia/Sydney', 'Sydney']];
+function updClocks() {
+  const n = new Date();
+  document.querySelectorAll('[data-tz]').forEach(e => { try { e.textContent = n.toLocaleDateString('en-GB', { timeZone: e.dataset.tz, weekday: 'short' }) + ' ' + n.toLocaleTimeString('en-GB', { timeZone: e.dataset.tz, hour: '2-digit', minute: '2-digit' }); } catch (x) {} });
+}
+function wClocks(w) {
+  const d = wdata(w), free = ZONES.filter(z => !d.zones.includes(z[0]));
+  wEl(w).innerHTML = head('Clocks') + `
+    <div class="list">${d.zones.map(z => `<div class="item"><span class="t">${esc((ZONES.find(q => q[0] === z) || [0, z])[1])}</span><span class="mono" data-tz="${esc(z)}">--</span><button class="x" data-act="z-del" ${A(w, `data-id="${esc(z)}"`)} aria-label="Remove">×</button></div>`).join('')}</div>
+    ${free.length ? `<form class="row" data-form="z-add" ${A(w)}><select name="tz" class="grow" aria-label="Time zone">${free.map(z => `<option value="${z[0]}">${z[1]}</option>`).join('')}</select><button class="btn" type="submit">Add</button></form>` : ''}`;
+  updClocks();
+}
+
+/* ---------- catalog: every widget a page can hold ---------- */
+const CAT = {
+  focus:    { name: 'Focus timer', desc: 'Timed sessions with editable tags', single: true, el: 'cFocus', size: 1, fill: () => renderFocus() },
+  tasks:    { name: "Today's list", desc: 'Tasks for the day with carry-over', single: true, el: 'cTasks', size: 1, fill: () => renderTasks() },
+  habits:   { name: 'Habits', desc: 'Daily checks with streaks', single: true, el: 'cHabits', size: 1, fill: () => renderHabits() },
+  week:     { name: 'Last 7 days', desc: 'Focus hours per day and subject', single: true, el: 'cWeek', size: 1, fill: () => renderWeek() },
+  money:    { name: 'Spending', desc: 'Quick expense log with monthly totals', single: true, el: 'cMoney', size: 1, fill: () => renderMoney() },
+  drill:    { name: 'Daily drill', desc: 'One technical question a day', single: true, el: 'cDrill', size: 1, fill: () => renderDrill() },
+  log:      { name: 'End-of-day log', desc: 'One line on what you shipped', single: true, el: 'cLog', size: 1, fill: () => renderLog() },
+  sync:     { name: 'Sync and backup', desc: 'GitHub sync, export and import', single: true, el: 'cSync', size: 1, fill: () => renderSync() },
+  board:    { name: 'Project board', desc: 'Three-column kanban for your builds', size: 2, init: () => ({ cards: [{ id: 'k1', t: 'PolarFire contest plan', col: 0 }, { id: 'k2', t: 'I3C controller phase 1', col: 1 }, { id: 'k3', t: 'Vinuwa vs Icarus tests', col: 1 }] }), fill: wBoard },
+  ideas:    { name: 'Idea inbox', desc: 'Quick capture with #tags, promote to a task', size: 1, init: () => ({ items: [] }), fill: wIdeas },
+  review:   { name: 'Weekly review', desc: 'Auto stats plus three prompts', size: 1, init: () => ({ weeks: {} }), fill: wReview },
+  counters: { name: 'Counters', desc: 'Water, sleep, sets and more, each with a goal', size: 1, init: () => ({ items: [{ id: 'c1', name: 'Water (glasses)', goal: 8, step: 1 }, { id: 'c2', name: 'Sleep (hours)', goal: 8, step: 0.5 }], vals: {} }), fill: wCounters },
+  runs:     { name: 'Run log', desc: 'Distance, pace and 8-week trend', size: 1, init: () => ({ runs: [] }), fill: wRuns },
+  heat:     { name: 'Streak heatmap', desc: '26 weeks for focus or any habit', size: 1, init: () => ({ src: 'focus' }), fill: wHeat },
+  watch:    { name: 'Watchlist', desc: 'Tickers and IPOs with targets and notes', size: 1, init: () => ({ items: [] }), fill: wWatch },
+  links:    { name: 'Quick links', desc: 'Your most-used sites', size: 1, init: () => ({ items: [{ id: 'l1', label: 'My tracker repo', url: 'https://github.com/ayush130305/mydailytracker' }] }), fill: wLinks },
+  pad:      { name: 'Scratchpad', desc: 'A free text area that autosaves', size: 1, init: () => ({ text: '' }), fill: wPad },
+  clocks:   { name: 'Clocks', desc: 'Live time in the zones you pick', size: 1, init: () => ({ zones: ['Asia/Kolkata', 'America/Los_Angeles', 'Europe/Berlin'] }), fill: wClocks }
+};
+
+function wForm(kind, form) {
+  const id = form.dataset.w, w = findInst(id); if (!w) return;
+  const d = wdata(w), fd = new FormData(form), g = k => String(fd.get(k) || '').trim();
+  if (kind === 'b-add' && g('t')) d.cards.push({ id: uid(), t: g('t'), col: 0 });
+  else if (kind === 'i-add' && g('t')) d.items.unshift({ id: uid(), t: g('t'), ts: Date.now() });
+  else if (kind === 'c-add' && g('name')) d.items.push({ id: uid(), name: g('name'), goal: parseFloat(g('goal')) || 0, step: parseFloat(g('step')) || 1 });
+  else if (kind === 'r-add') { const km = parseFloat(g('km')), min = parseFloat(g('min')); if (!(km > 0)) return; d.runs.push({ id: uid(), date: todayISO(), km, min: min > 0 ? min : 0, note: g('note') }); }
+  else if (kind === 'wl-add' && g('sym')) d.items.push({ id: uid(), sym: g('sym').toUpperCase(), target: g('target'), note: g('note'), hit: false });
+  else if (kind === 'l-add' && g('url')) { let u = g('url'); if (!/^https?:\/\//i.test(u)) u = 'https://' + u; d.items.push({ id: uid(), label: g('label') || u.replace(/^https?:\/\//, ''), url: u }); }
+  else if (kind === 'z-add' && g('tz') && !d.zones.includes(g('tz'))) d.zones.push(g('tz'));
+  else return;
+  save(); refresh(id);
+}
+
+setInterval(updClocks, 1000);
 
 /* ---------- boot ---------- */
 const local = loadLocal(); if (local) S = merge(local);
